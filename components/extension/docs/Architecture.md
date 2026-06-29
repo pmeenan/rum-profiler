@@ -42,5 +42,6 @@ The injected [`capture`](../../capture) library is the only measurement source. 
 
 - Exact header-injection scoping (DNR/session rule or equivalent, which frames, when active) and reload UX for the header to take effect.
 - Browser support matrix for `Document-Policy: js-profiling` (Chromium-only today; track Firefox/Safari status) and graceful fallback when unsupported.
+- **Track the policy name.** The WICG draft has introduced **`js-profiling-mode`** (with `js-profiling` as legacy-compatible) — [spec](https://wicg.github.io/js-self-profiling/). `js-profiling` is what Chrome 149 accepts today (verified via the capture corpus); confirm the currently-accepted name(s) against real browsers before shipping the header-injection rule, and inject whatever the target engines require.
 - Main-world injection timing (`document_start`, registered content scripts, frame matching) to not miss early entries.
 - v0 capture-config presets.

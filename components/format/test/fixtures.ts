@@ -28,8 +28,7 @@ import {
   type CaptureConfig,
   type ClockMeta,
   type ProfileFrame,
-  type ProfileStack,
-  type ProfileSample,
+  type ProfileSlice,
 } from '@rum-profiler/format';
 
 const rel = asRelMs;
@@ -472,24 +471,22 @@ const profilePresent: Capture = {
   streams: {
     navigation: { name: 'https://app.example/', startTime: rel(0), duration: dur(900), initiatorType: 'navigation', type: 'navigate', redirectCount: 0 },
     environment: { selfProfiler: 'available' },
-    // Interned tables: frames/stacks/samples reference by index. Idle sample (no stackId) included.
+    // Nested timed-slice wire model. Pre-order (start asc, then depth asc); a slice's parent is the
+    // nearest preceding slice of depth-1. One single-sample transient was pruned -> droppedSamples.
     profile: {
       sampleIntervalMs: dur(10),
+      resources: ['https://app.example/bundle.js'],
       frames: [
         { name: 'main', resourceId: 0, line: 12, column: 4 },
         { name: 'render', resourceId: 0, line: 88, column: 2 },
         { name: '' }, // anonymous frame, no resource — exercises absent optionals
       ],
-      resources: ['https://app.example/bundle.js'],
-      stacks: [
-        { frameId: 0 },
-        { frameId: 1, parentId: 0 },
+      slices: [
+        { frameId: 0, depth: 0, start: rel(100), duration: dur(20) }, // main, 100..120
+        { frameId: 1, depth: 1, start: rel(100), duration: dur(10) }, // render nested under main, 100..110
+        { frameId: 2, depth: 2, start: rel(100), duration: dur(10) }, // anon nested under render
       ],
-      samples: [
-        { timestamp: rel(100), stackId: 0 },
-        { timestamp: rel(110), stackId: 1 },
-        { timestamp: rel(120) }, // idle: no JS on-stack
-      ],
+      droppedSamples: 1,
     },
   },
 };
@@ -585,12 +582,12 @@ const minimalEmpty: Capture = {
   streams: {}, // no stream sections at all
 };
 
-// ── 8. profileHeavy — the JS self-profiling stream at volume, to exercise the columnar sample codec ─
-// Deterministic (no RNG, so the test is reproducible): ~2000 samples on a ~10ms cadence with 5µs
-// jitter, periodic idle samples, and stack ids cycling through a small interned stack table. This is
-// the shape that makes the generic per-sample f64 layout blow up and the columnar delta layout shine.
+// ── 8. profileHeavy — the JS self-profiling stream at volume, to exercise the columnar slice codec ──
+// Deterministic (no RNG, so the test is reproducible): 500 roots × 4 nested slices = 2000 slices, in
+// pre-order, ~40ms apart with 5µs jitter on the start column (so the µs-delta path is exercised), kept
+// on the µs grid. This is the shape that makes the generic per-struct layout blow up and columnar shine.
 function makeProfileHeavy(): Capture {
-  const SAMPLES = 2000;
+  const ROOTS = 500;
   const frames: ProfileFrame[] = [
     { name: '(program)' },
     { name: 'requestAnimationFrame', resourceId: 0, line: 11, column: 3 },
@@ -599,20 +596,16 @@ function makeProfileHeavy(): Capture {
     { name: 'commit', resourceId: 1, line: 22, column: 1 },
     { name: 'layout', resourceId: 1, line: 60, column: 5 },
   ];
-  const stacks: ProfileStack[] = [
-    { frameId: 0 },
-    { frameId: 1, parentId: 0 },
-    { frameId: 2, parentId: 1 },
-    { frameId: 3, parentId: 2 },
-    { frameId: 4, parentId: 1 },
-    { frameId: 5, parentId: 4 },
-  ];
-  const samples: ProfileSample[] = [];
-  let t = 250; // ms
-  for (let i = 0; i < SAMPLES; i++) {
-    t = Math.round((t + 10 + (i % 5) * 0.005) * 1000) / 1000; // advance ~10ms ± 5µs, kept on the µs grid
-    if (i % 17 === 0) samples.push({ timestamp: rel(t) }); // idle: no JS on-stack
-    else samples.push({ timestamp: rel(t), stackId: (i * 7) % stacks.length });
+  const q = (ms: number): number => Math.round(ms * 1000) / 1000; // keep timeline values on the µs grid
+  const slices: ProfileSlice[] = [];
+  for (let i = 0; i < ROOTS; i++) {
+    const base = q(250 + i * 40 + (i % 5) * 0.005); // ~40ms apart, ±5µs jitter to exercise start deltas
+    const mid = q(base + 20);
+    // Pre-order: root, then its first child + that child's grandchild, then the second child (sibling).
+    slices.push({ frameId: 0, depth: 0, start: rel(base), duration: dur(40) });
+    slices.push({ frameId: 1 + (i % 5), depth: 1, start: rel(base), duration: dur(20) });
+    slices.push({ frameId: 1 + ((i * 3) % 5), depth: 2, start: rel(base), duration: dur(10) });
+    slices.push({ frameId: 1 + ((i + 2) % 5), depth: 1, start: rel(mid), duration: dur(20) });
   }
   return {
     formatVersion: FORMAT_VERSION,
@@ -626,10 +619,10 @@ function makeProfileHeavy(): Capture {
     streams: {
       profile: {
         sampleIntervalMs: dur(10),
-        frames,
         resources: ['https://app.example/main.js', 'https://app.example/vendor.js'],
-        stacks,
-        samples,
+        frames,
+        slices,
+        droppedSamples: 173,
       },
     },
   };

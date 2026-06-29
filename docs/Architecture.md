@@ -37,7 +37,7 @@ A capture is a set of **streams** sharing one time base, plus a **manifest** des
 - **Resources** — Resource Timing entries with sub-phases (queueing, DNS, connect, TLS, TTFB, download), Server-Timing, initiator info where available.
 - **Rendering & layout** — Paint Timing (FP/FCP), LCP (+ sub-parts and element attribution), Layout Instability (CLS + shift sources), Element Timing.
 - **Interactivity** — Event Timing / INP, Long Tasks, Long Animation Frames (LoAF) with scripts/attribution.
-- **Profile** — JS self-profiling sampled stacks (requires the `Document-Policy: js-profiling` response header; Chromium-only today, so confirm current browser support before relying on it).
+- **Profile** — JS self-profiling, stored as derived nested timed **slices** (a call-tree folded from the raw samples — see [`format`](../components/format); requires the `Document-Policy: js-profiling` response header; Chromium-only today, so confirm current browser support before relying on it).
 - **App signals** — User Timing marks/measures, custom app/framework instrumentation, JS errors.
 - **Environment** — UA Client Hints, device memory / hardware concurrency, network information, memory measurement — for segmentation.
 
@@ -69,7 +69,7 @@ Every packed capture begins with a manifest declaring the timeline clock metadat
    (→ Perfetto       (metrics & attribution        (source maps → readable
     protobuf:         from the timeline)             profiler frames)
     timeline +             │                                │
-    samples +              ▼                                ▼
+    profile +              ▼                                ▼
     counters)        metrics / queries              symbolicated profile
         │
         ▼
@@ -85,12 +85,12 @@ Every packed capture begins with a manifest declaring the timeline clock metadat
 Per-sample viewing leans on **Perfetto**:
 
 - Slices/tracks for nav phases, resources (nested async sub-phases), long tasks, LoAF, user timing.
-- **Native sampled callstacks** for the JS self-profile → flamegraphs for free.
+- **Profile slices** for the JS self-profile → nested on the main-thread track, inline with long tasks/LoAF; a flamegraph comes from Perfetto aggregating the slice track (the slice wire model trades the *native* sampled-callstack profile for inline-with-the-timeline correlation).
 - **Counter tracks** for in-flight requests, CLS-over-time, memory.
 - **Flow arrows** connecting interaction → LoAF → paint for INP stories.
 - Perfetto's **SQL trace_processor** doubles as a metrics/analysis surface — directly serving the "metrics and profile inform each other" goal.
 
-We emit the **Perfetto protobuf** (not legacy Chrome JSON) because only it carries native samples + counters compactly (interned data). The viewer embeds `ui.perfetto.dev` via postMessage and hands over an ArrayBuffer; processing stays local in-browser. Trust boundary: the embedded `ui.perfetto.dev` instance is trusted third-party-origin code for v0 viewing, and it receives the trace bytes even though it does not upload them. The [waterfall-tools](https://github.com/pmeenan/waterfall-tools) embedding flow is our reference for this.
+We emit the **Perfetto protobuf** (not legacy Chrome JSON) because it carries counter tracks and interned track events (frames/strings) compactly — and the dense profile-slice track leans on that interning. The viewer embeds `ui.perfetto.dev` via postMessage and hands over an ArrayBuffer; processing stays local in-browser. Trust boundary: the embedded `ui.perfetto.dev` instance is trusted third-party-origin code for v0 viewing, and it receives the trace bytes even though it does not upload them. The [waterfall-tools](https://github.com/pmeenan/waterfall-tools) embedding flow is our reference for this.
 
 Perfetto is the *per-sample* viewer only. Aggregate viewing (`components/aggregate`) is a separate build. A bespoke resource-waterfall view may be added later if Perfetto's is insufficient.
 

@@ -160,13 +160,13 @@ describe('compactness', () => {
     });
   }
 
-  it('profileHeavy: the columnar sample codec stays under one packed byte per sample', async () => {
-    // 2000 regular, monotonic samples. The generic per-sample f64+presence+varuint shape would be
-    // ~11 bytes/sample before gzip; columnar delta ticks + stackId-sentinel must crush that.
+  it('profileHeavy: the columnar slice codec stays under one packed byte per slice', async () => {
+    // 2000 nested slices in pre-order. The generic per-struct shape (frameId+depth+start+duration +
+    // presence) would be ~8 bytes/slice before gzip; the four contiguous columns must crush that.
     const packed = await pack(profileHeavy);
-    const sampleCount = profileHeavy.streams.profile!.samples.length;
-    expect(sampleCount).toBeGreaterThanOrEqual(2000);
-    expect(packed.length).toBeLessThan(sampleCount); // < 1 byte/sample for the WHOLE capture
+    const sliceCount = profileHeavy.streams.profile!.slices.length;
+    expect(sliceCount).toBeGreaterThanOrEqual(2000);
+    expect(packed.length).toBeLessThan(sliceCount); // < 1 byte/slice for the WHOLE capture
   });
 });
 

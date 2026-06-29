@@ -13,7 +13,7 @@ A thin, local viewer for a single captured sample. It does **not** render its ow
 
 ## Why Perfetto, not a custom renderer
 
-Perfetto already gives us slices, flamegraphs (sampled callstacks), counter tracks, flow arrows, and a SQL query engine — the exact surface our data needs, in a tool developers are fluent in. Building a bespoke timeline renderer would duplicate it for less. The embedding pattern in [waterfall-tools](https://github.com/pmeenan/waterfall-tools) (postMessage ping-pong + ArrayBuffer to `ui.perfetto.dev`) is our **reference** (not a dependency).
+Perfetto already gives us slices, flamegraphs (aggregated from the profile-slice track), counter tracks, flow arrows, and a SQL query engine — the exact surface our data needs, in a tool developers are fluent in. Building a bespoke timeline renderer would duplicate it for less. The embedding pattern in [waterfall-tools](https://github.com/pmeenan/waterfall-tools) (postMessage ping-pong + ArrayBuffer to `ui.perfetto.dev`) is our **reference** (not a dependency).
 
 ## Scope boundary
 

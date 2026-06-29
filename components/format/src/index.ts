@@ -9,6 +9,10 @@ export { asRelMs, asDurationMs, asEpochMs } from './time.js';
 export { pack, unpack, MAGIC, CODEC_VERSION, FILE_EXTENSION } from './codec/pack.js';
 // Manifest-vs-payload consistency check for tests/tooling (not the hot pack path).
 export { checkConsistency } from './codec/validate.js';
+// The canonical profiler transform: raw per-sample `Profiler.stop()` output → the nested-slice wire
+// model. `SliceBuilder` folds incrementally (the capture→wire seam); `samplesToSlices` is one-shot.
+export { SliceBuilder, samplesToSlices } from './profile-slices.js';
+export type { SliceBuilderOptions } from './profile-slices.js';
 
 export type { StreamId, StreamStatus } from './registry.js';
 export type { RelMs, DurationMs, EpochMs } from './time.js';

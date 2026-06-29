@@ -8,7 +8,7 @@ Converts a packed capture ([`format`](../format)) into the **Perfetto protobuf**
 
 - Map our streams onto Perfetto constructs:
   - nav phases, resources (nested async sub-phases), long tasks, LoAF, user timing → **slices/tracks**
-  - JS self-profile → **native sampled callstacks** (flamegraph)
+  - JS self-profile (nested timed **slices**) → **nested slices on the main-thread track**, inline with long tasks/LoAF (flamegraph via Perfetto's slice aggregation)
   - in-flight requests, CLS-over-time, memory → **counter tracks**
   - interaction → LoAF → paint → **flow arrows** (INP stories)
 - Emit valid Perfetto protobuf: a **varint encoder** + `TracePacket` builder with **interned data**.
@@ -17,11 +17,11 @@ Converts a packed capture ([`format`](../format)) into the **Perfetto protobuf**
 
 ## Why protobuf, not Chrome JSON
 
-Only the Perfetto protobuf carries native sampled callstacks and counter tracks compactly (via interned data) — and those are our deep-profiling payoff. The legacy Chrome JSON trace format can't express them well.
+The Perfetto protobuf carries **counter tracks** and **interned track events** (shared frame/category/name strings) compactly — the deep-profiling payoff (counters for in-flight requests / CLS / memory, plus the dense profile-slice track). The legacy Chrome JSON trace format can't express counters or interning well. Note the profile is now nested **slices**, not native sampled callstacks (see [`format`](../format)), so a flamegraph comes from Perfetto aggregating the slice track rather than a native sample profile.
 
 ## Reference
 
-waterfall-tools has a hand-rolled, read-only Perfetto **decoder** ([decoder.js](https://github.com/pmeenan/waterfall-tools/blob/main/src/inputs/utilities/perfetto/decoder.js)). Useful as a **wire-format reference** for writing our **encoder** — but it has no write path and skips counters/samples, so the emitter (especially `SampleTree`/`CallstackSample` and counter packets) is built from scratch. Reference only; no dependency.
+waterfall-tools has a hand-rolled, read-only Perfetto **decoder** ([decoder.js](https://github.com/pmeenan/waterfall-tools/blob/main/src/inputs/utilities/perfetto/decoder.js)). Useful as a **wire-format reference** for writing our **encoder** — but it has no write path and skips counters, so the emitter (especially counter packets and interned track events) is built from scratch. Reference only; no dependency.
 
 ## Inputs / outputs
 
@@ -31,7 +31,7 @@ waterfall-tools has a hand-rolled, read-only Perfetto **decoder** ([decoder.js](
 ## Key open questions
 
 - Track/slice taxonomy and naming so Perfetto reads naturally.
-- How symbolicated frames ([`symbolication`](../symbolication)) feed callstack samples (pre- vs. post-transcode).
+- How symbolicated frames ([`symbolication`](../symbolication)) feed the profile slices' frame labels (pre- vs. post-transcode).
 - Whether to also emit an "Extended HAR"-style output for a dedicated resource-waterfall view later.
 
 See [docs/Architecture.md](docs/Architecture.md).

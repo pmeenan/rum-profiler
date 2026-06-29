@@ -33,7 +33,7 @@ Each lives in its own folder under [`components/`](components/) with its own `RE
 |---|---|---|---|---|
 | Capture | [`components/capture`](components/capture) | 0/1 | v0 | Read browser perf APIs → correlated in-memory timeline |
 | Format | [`components/format`](components/format) | 0 | v0 | Schema + compact, self-describing binary pack/unpack |
-| Transcode | [`components/transcode`](components/transcode) | 1 | v0 | Packed capture → Perfetto protobuf (timeline, samples, counters) |
+| Transcode | [`components/transcode`](components/transcode) | 1 | v0 | Packed capture → Perfetto protobuf (timeline, profile slices, counters) |
 | Extension | [`components/extension`](components/extension) | 1 | v0 | Inject capture + Document Policy into live pages; save captures |
 | Viewer | [`components/viewer`](components/viewer) | 1 | v0 | Embed Perfetto UI; load packed captures locally |
 | Analysis | [`components/analysis`](components/analysis) | 1 | v0 | Derive metrics & attribution (CWV, LCP/INP/CLS, idle windows) |

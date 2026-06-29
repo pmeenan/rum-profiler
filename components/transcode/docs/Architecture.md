@@ -15,7 +15,7 @@
 | Navigation phases | slices on a "navigation" track |
 | Resource entries | nested async slices (queue/DNS/connect/TLS/TTFB/download) per request |
 | Long tasks / LoAF | slices on the main-thread track; LoAF scripts as children |
-| JS self-profile | `SampleTree` / `CallstackSample` → flamegraph |
+| JS self-profile slices | nested slices on the main-thread track (same TrackEvent path; flamegraph via Perfetto slice aggregation) |
 | In-flight requests, CLS, memory | counter tracks |
 | Interaction → LoAF → paint | flow events (arrows) |
 | User Timing marks/measures | instant/duration slices |
@@ -27,12 +27,12 @@ Net-new work, in layers:
 1. **Varint + wire primitives** — length-delimited fields, ZigZag where needed. (waterfall-tools' reader is a reference for the inverse.)
 2. **`TracePacket` builder** — track descriptors, track events (B/E/I), defaults, sequence handling.
 3. **Interned data** — categories, names, and frame strings interned to keep size down (mirrors the format's own interning).
-4. **Profiles** — `SampleTree`/`CallstackSample` for sampled stacks; the part nothing existing reuses.
+4. **Profile slices** — emitted through the same TrackEvent (B/E) path as other slices, nested on the main-thread track. Because the wire is already a slice tree, there is no separate sampled-callstack emitter to build (the slice form gives up Perfetto's *native* sample profile; a flamegraph comes from aggregating the slice track instead).
 5. **Counters** — counter descriptors + values over time.
 
 ## Build order
 
-Timeline first (slices/tracks) to get a usable viewer quickly, then samples (flamegraph), then counters and flows. Each addition degrades cleanly when its source stream is absent.
+Timeline first (slices/tracks) to get a usable viewer quickly — the profile slices ride the same path, so they come essentially for free — then counters and flows. Each addition degrades cleanly when its source stream is absent.
 
 ## Validation
 
@@ -40,7 +40,7 @@ Every generated protobuf fixture should be parsed by Perfetto tooling (`trace_pr
 
 ## Symbolication boundary
 
-Frames may arrive raw (URL + line:col) or symbolicated. Decide whether transcode consumes already-symbolicated frames from [`symbolication`](../../symbolication) or emits raw frames that a Perfetto-side/source-map step resolves. Leaning toward symbolicate-then-transcode so the flamegraph is readable on load.
+Frames may arrive raw (URL + line:col) or symbolicated. Decide whether transcode consumes already-symbolicated frames from [`symbolication`](../../symbolication) or emits raw frames that a Perfetto-side/source-map step resolves. Leaning toward symbolicate-then-transcode so the profile slices are readable on load.
 
 ## Open questions
 

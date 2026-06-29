@@ -49,7 +49,7 @@ const SA = 7; // string[]
 const NRR = 'n'; // navigation.notRestoredReasons: NotRestoredReasons | null (recursive, null-discriminated)
 const SMAP = 'm'; // CaptureConfig.streams: Partial<Record<StreamId, StreamConfig>>
 const OMAP = 'o'; // OverheadReport.byStream: Partial<Record<StreamId, {...}>>
-const PSAMPLES = 'p'; // ProfileStream.samples: columnar delta + idle sentinel
+const PSLICES = 'q'; // SliceProfile.slices: columnar (frameId / depth / start-delta / duration)
 
 type Desc = readonly unknown[];
 
@@ -76,7 +76,6 @@ const UA_BRAND: Desc = [2, 'brand', S, 'version', S];
 const UA_DATA: Desc = [0, 'brands', [UA_BRAND], 'mobile', B, 'platform', S, 'platformVersion', S, 'architecture', S, 'bitness', S, 'model', S, 'fullVersionList', [UA_BRAND], 'formFactors', SA];
 const CONNECTION: Desc = [0, 'effectiveType', S, 'rtt', U, 'downlink', F, 'saveData', B];
 const PROFILE_FRAME: Desc = [1, 'name', S, 'resourceId', U, 'line', U, 'column', U];
-const PROFILE_STACK: Desc = [1, 'frameId', U, 'parentId', U];
 const CONTEXT_CLOCK: Desc = [4, 'id', S, 'kind', S, 'timeOrigin', F, 'offsetToPage', D];
 const LOSS_NOTE: Desc = [1, 'kind', S, 'at', R, 'droppedCount', U, 'note', S];
 const PROVENANCE: Desc = [0, 'api', S, 'browser', S, 'engine', S];
@@ -124,7 +123,7 @@ const STREAM_T: Partial<Record<StreamId, unknown>> = {
   userTiming: [2, 'marks', [MARK], 'measures', [MEASURE]],
   visibility: [1, 'states', [VIS_STATE]],
   environment: [0, 'userAgent', S, 'userAgentData', UA_DATA, 'deviceMemory', F, 'hardwareConcurrency', U, 'connection', CONNECTION, 'viewportWidth', U, 'viewportHeight', U, 'screenWidth', U, 'screenHeight', U, 'devicePixelRatio', F, 'selfProfiler', S],
-  profile: [4, 'frames', [PROFILE_FRAME], 'resources', SA, 'stacks', [PROFILE_STACK], 'samples', PSAMPLES, 'sampleIntervalMs', D],
+  profile: [4, 'frames', [PROFILE_FRAME], 'resources', SA, 'slices', PSLICES, 'droppedSamples', U, 'sampleIntervalMs', D],
   errors: [1, 'errors', [ERROR_ENTRY]],
 };
 
@@ -151,7 +150,7 @@ function field(e: Encoder, v: unknown, t: unknown): void {
     if (t === NRR) encNullableNrr(e, v as NrrNode | null);
     else if (t === SMAP) encStreamMap(e, v as Record<string, unknown>, STREAM_CONFIG);
     else if (t === OMAP) encStreamMap(e, v as Record<string, unknown>, OVERHEAD_ENTRY);
-    else if (t === PSAMPLES) encSamples(e, v as Array<{ timestamp: number; stackId?: number }>);
+    else if (t === PSLICES) encSlices(e, v as ReadonlyArray<{ frameId: number; depth: number; start: number; duration: number }>);
     else bad(t);
   } else if (typeof (t as Desc)[0] === 'number') {
     encStruct(e, v, t as Desc); // nested struct
@@ -178,7 +177,7 @@ function dfield(d: Decoder, t: unknown): unknown {
     if (t === NRR) return decNullableNrr(d);
     if (t === SMAP) return decStreamMap(d, STREAM_CONFIG);
     if (t === OMAP) return decStreamMap(d, OVERHEAD_ENTRY);
-    if (t === PSAMPLES) return decSamples(d);
+    if (t === PSLICES) return decSlices(d);
     return bad(t);
   } else if (typeof (t as Desc)[0] === 'number') {
     return decStruct(d, t as Desc); // nested struct
@@ -305,38 +304,57 @@ function decStreamMap(d: Decoder, valueDesc: Desc): Record<string, unknown> {
 }
 
 /**
- * Profile samples — columnar + delta. Column 1: first absolute µs tick, then non-negative µs deltas
- * (samples are monotonic). Column 2: stackId+1, with 0 = idle. Contiguous columns compress far better
- * than the generic per-sample shape; on a 2000-sample fixture the whole capture is <1 byte/sample.
+ * Profile slices — columnar. Four contiguous columns so gzip models each separately:
+ *   frameId  — index into `frames` (raw varint).
+ *   depth    — zigzag delta from the previous slice (pre-order depths move ±1 most of the time, so
+ *              the deltas are tiny and very gzip-friendly — far smaller than raw depths up to 255).
+ *   start    — first absolute µs tick, then non-negative µs deltas (pre-order ⇒ non-decreasing).
+ *   duration — **1ms units**, not µs: slice durations are sample-INFERRED, accurate only to ±1 interval
+ *              (~10ms), so storing microseconds would be false precision (and ~3 bytes/slice → ~1).
+ * Nesting is implicit from depth + pre-order, so the per-sample form's interned `stacks` table is gone
+ * entirely — far smaller on deep-stack pages.
  */
-function encSamples(e: Encoder, samples: ReadonlyArray<{ timestamp: number; stackId?: number }>): void {
-  e.varuint(samples.length);
-  if (samples.length === 0) return;
-  let prev = Math.round(samples[0]!.timestamp * 1000);
-  e.varuint(prev);
-  for (let i = 1; i < samples.length; i++) {
-    const t = Math.round(samples[i]!.timestamp * 1000);
-    e.varuint(t - prev);
-    prev = t;
+function encSlices(e: Encoder, slices: ReadonlyArray<{ frameId: number; depth: number; start: number; duration: number }>): void {
+  e.varuint(slices.length);
+  if (slices.length === 0) return;
+  for (const s of slices) e.varuint(s.frameId);
+  let prevDepth = 0;
+  for (const s of slices) {
+    const dd = s.depth - prevDepth;
+    e.varuint(dd >= 0 ? dd * 2 : -dd * 2 - 1); // zigzag: maps small ± deltas onto small varints
+    prevDepth = s.depth;
   }
-  for (const s of samples) e.varuint(s.stackId === undefined ? 0 : s.stackId + 1);
+  let prevTick = 0;
+  for (let i = 0; i < slices.length; i++) {
+    const tick = Math.round(slices[i]!.start * 1000);
+    e.varuint(i === 0 ? tick : tick - prevTick); // pre-order ⇒ non-decreasing ⇒ delta ≥ 0
+    prevTick = tick;
+  }
+  for (const s of slices) e.varuint(Math.round(s.duration)); // 1ms grid (durations are inferred ±1 interval)
 }
-function decSamples(d: Decoder): Array<{ timestamp: number; stackId?: number }> {
+function decSlices(d: Decoder): Array<{ frameId: number; depth: number; start: number; duration: number }> {
   const n = d.varuint();
-  const out = new Array<{ timestamp: number; stackId?: number }>(n);
+  const out = new Array<{ frameId: number; depth: number; start: number; duration: number }>(n);
   if (n === 0) return out;
-  const ticks = new Array<number>(n);
-  let acc = d.varuint();
-  ticks[0] = acc;
-  for (let i = 1; i < n; i++) {
-    acc += d.varuint();
-    ticks[i] = acc;
-  }
+  const frameId = new Array<number>(n);
+  const depth = new Array<number>(n);
+  const start = new Array<number>(n);
+  const duration = new Array<number>(n);
+  for (let i = 0; i < n; i++) frameId[i] = d.varuint();
+  let prevDepth = 0;
   for (let i = 0; i < n; i++) {
-    const sample: { timestamp: number; stackId?: number } = { timestamp: ticks[i]! / 1000 };
-    const stackPlusOne = d.varuint();
-    if (stackPlusOne !== 0) sample.stackId = stackPlusOne - 1;
-    out[i] = sample;
+    const z = d.varuint();
+    prevDepth += z % 2 === 0 ? z / 2 : -(z + 1) / 2; // un-zigzag, then accumulate
+    depth[i] = prevDepth;
+  }
+  let acc = 0;
+  for (let i = 0; i < n; i++) {
+    acc = i === 0 ? d.varuint() : acc + d.varuint();
+    start[i] = acc;
+  }
+  for (let i = 0; i < n; i++) duration[i] = d.varuint();
+  for (let i = 0; i < n; i++) {
+    out[i] = { frameId: frameId[i]!, depth: depth[i]!, start: start[i]! / 1000, duration: duration[i]! }; // start µs→ms; duration already ms
   }
   return out;
 }

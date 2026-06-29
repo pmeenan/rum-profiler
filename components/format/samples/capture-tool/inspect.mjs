@@ -80,3 +80,22 @@ for (const f of files) {
   const blanks = Object.entries(cap.streams).filter(([, s]) => s.status !== 'present').map(([t, s]) => `${t}:${s.status}`);
   console.log(`${f}: ${blanks.length ? blanks.join(', ') : '(all present)'}`);
 }
+
+// 6) JS Self-Profiling stream — interval clamp, idle %, stack depth, frame-name/url population.
+console.log('\n\n================ PROFILE (JS Self-Profiling) ================');
+for (const f of files) {
+  const cap = JSON.parse(readFileSync(join(OUT, f), 'utf8'));
+  const p = cap.profile;
+  if (!p || p.status !== 'present') { console.log(`\n${f}: profile ${p ? p.status : 'absent'}`); continue; }
+  const { frames, stacks, samples } = p;
+  // resolve stackId -> depth (walk parentId, guard cycles)
+  const depthOf = (sid) => { let d = 0, cur = sid; const seen = new Set(); while (cur !== undefined && !seen.has(cur)) { seen.add(cur); d++; cur = stacks[cur].parentId; } return d; };
+  let idle = 0, maxDepth = 0, sumD = 0, n = 0;
+  for (const s of samples) { if (s.stackId === undefined) { idle++; continue; } const d = depthOf(s.stackId); maxDepth = Math.max(maxDepth, d); sumD += d; n++; }
+  const emptyName = frames.filter((fr) => !fr.name).length;
+  const noResource = frames.filter((fr) => fr.resourceId === undefined).length;
+  console.log(`\n${f}`);
+  console.log(`  interval: requested ${p.requestedSampleIntervalMs}ms -> actual ${p.actualSampleIntervalMs}ms  bufferFull=${p.sampleBufferFull}`);
+  console.log(`  samples=${samples.length} idle=${idle} (${(100 * idle / samples.length).toFixed(0)}%)  frames=${frames.length} stacks=${stacks.length}`);
+  console.log(`  stack depth avg=${(sumD / Math.max(1, n)).toFixed(0)} max=${maxDepth}  frames: emptyName=${emptyName} noResourceId=${noResource}`);
+}

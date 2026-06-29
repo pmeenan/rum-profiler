@@ -10,7 +10,7 @@ import type { PaintStream, LcpStream, ClsStream, ElementTimingStream } from './r
 import type { InteractionsStream, LongTasksStream, LoafStream } from './interactivity.js';
 import type { UserTimingStream, VisibilityStream, ErrorsStream } from './appsignals.js';
 import type { EnvironmentStream } from './environment.js';
-import type { ProfileStream } from './profile.js';
+import type { SliceProfile } from './profile.js';
 
 /**
  * The container of all (optional) streams. Every field is optional: absence is normal, and the
@@ -31,6 +31,7 @@ export interface Streams {
   userTiming?: UserTimingStream;
   visibility?: VisibilityStream;
   environment?: EnvironmentStream;
-  profile?: ProfileStream;
+  /** The wire model is the derived nested-slice form (see `profile-slices.ts`), not raw samples. */
+  profile?: SliceProfile;
   errors?: ErrorsStream;
 }

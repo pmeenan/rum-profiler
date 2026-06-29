@@ -60,7 +60,7 @@ Every packed capture begins with a manifest declaring the timeline clock metadat
   browser   │  capture  ──►  in-memory timeline  │
   perf APIs │     │                              │
             │     ▼                              │
-            │  format (pack)  ──►  .rumcap file  │   canonical, compact, self-describing
+            │  format (pack)  ──►  .rcap file  │   canonical, compact, self-describing
             └─────────────────┬──────────────────┘
                               │
         ┌─────────────────────┼───────────────────────────────┐
@@ -76,9 +76,9 @@ Every packed capture begins with a manifest declaring the timeline clock metadat
    viewer (embedded Perfetto UI, local)
 ```
 
-- **Canonical artifact:** the packed `.rumcap` file (name TBD). It is what gets saved, transported, and stored.
+- **Canonical artifact:** the packed `.rcap` file (magic `F5 52 55 4D`). It is what gets saved, transported, and stored.
 - **Perfetto is a transcode target, not the canonical store.** We keep our own compact format for wire size and control, and transcode to Perfetto for viewing.
-- **v0 injector/saver:** the extension is only a harness: it injects capture + format, enables required response headers, writes `.rumcap` files, and can hand them to the viewer. It does not collect performance data through extension-only mechanisms.
+- **v0 injector/saver:** the extension is only a harness: it injects capture + format, enables required response headers, writes `.rcap` files, and can hand them to the viewer. It does not collect performance data through extension-only mechanisms.
 
 ## 5. Viewing strategy
 

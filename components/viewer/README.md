@@ -6,7 +6,7 @@ A thin, local viewer for a single captured sample. It does **not** render its ow
 
 ## Responsibilities
 
-- Load a `.rumcap` file (from disk or handed over by the [`extension`](../extension)).
+- Load a `.rcap` file (from disk or handed over by the [`extension`](../extension)).
 - Transcode it in-browser via [`transcode`](../transcode) to Perfetto protobuf.
 - Embed `ui.perfetto.dev` and hand over the trace as an ArrayBuffer (postMessage); processing stays local, and the embedded Perfetto UI is trusted to receive the capture bytes.
 - Optionally surface [`analysis`](../analysis) metrics alongside the trace.
@@ -22,7 +22,7 @@ Perfetto already gives us slices, flamegraphs (sampled callstacks), counter trac
 
 ## Inputs / outputs
 
-- **In:** a `.rumcap` capture.
+- **In:** a `.rcap` capture.
 - **Out:** an interactive Perfetto view, local in the browser.
 
 ## Key open questions

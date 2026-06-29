@@ -25,7 +25,7 @@ waterfall-tools has a hand-rolled, read-only Perfetto **decoder** ([decoder.js](
 
 ## Inputs / outputs
 
-- **In:** a `.rumcap` packed capture.
+- **In:** a `.rcap` packed capture.
 - **Out:** a Perfetto protobuf trace (`Uint8Array`/ArrayBuffer) for [`viewer`](../viewer) or any Perfetto UI.
 
 ## Key open questions

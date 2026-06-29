@@ -4,7 +4,7 @@
 
 ## Direction
 
-- Input: an unpacked `.rumcap` ([`format`](../../format)).
+- Input: an unpacked `.rcap` ([`format`](../../format)).
 - A library of pure functions, one per metric/attribution, each declaring which streams it needs and returning `value | unknown` with provenance.
 - Emergent/cross-stream analyses (idle windows, LCP-blocking) operate on the merged timeline.
 

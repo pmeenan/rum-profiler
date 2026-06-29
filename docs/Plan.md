@@ -24,18 +24,18 @@ The **Phase 1 milestone is the first shippable product**: a Chrome extension tha
 - `format`: build a **golden corpus**, including deliberately *partial* captures (Safari-subset, no-profiler, no-resource-timing, buffer-overflowed) so degradation is tested, not hoped for.
 - `capture` (MVP): place the cheap, widely-available raw streams (navigation/resource/paint, LCP/CLS/Event Timing entries with live attribution, long tasks/LoAF) on one clock and emit the in-memory model the format packs. Derived CWV metrics live in `analysis`. Include a tiny app-signal API for explicit SPA/router boundary marks rather than depending solely on experimental soft-navigation heuristics.
 
-**Progress (2026-06-28):** npm + TypeScript workspace scaffolded (vitest, ESLint flat config, `tsc -b` project refs). `format` in-memory model, manifest, and capture-config drafted and grounded in a real Chrome-149 capture corpus ([`components/format/samples`](../components/format/samples)); lint/build/tests green. **Next:** binary codec + golden-corpus round-trip, then `capture` MVP.
+**Progress (2026-06-28):** npm + TypeScript workspace scaffolded (vitest, ESLint flat config, `tsc -b` project refs). `format` in-memory model, manifest, and capture-config drafted and grounded in a real Chrome-149 capture corpus ([`components/format/samples`](../components/format/samples)). **Binary codec (`pack`/`unpack`) implemented** — compact (descriptor-driven encode/decode, string interning, varints, fixed-point-µs timestamps, presence-bitmap optionals, gzip) and lossless to 1µs on timeline values / exact otherwise: it round-trips the golden corpus ([`components/format/test/fixtures.ts`](../components/format/test/fixtures.ts)) **including the degraded/partial captures**, so the Phase-0 exit criterion is met. `.rcap` file format (magic `F5 52 55 4D`, `CODEC_VERSION` distinct from `FORMAT_VERSION`) is specified in [`components/format`](../components/format). Lint/build/tests green. **Next:** the `capture` MVP (browser perf APIs → Capture model).
 
-**Exit criteria:** capture → pack → unpack → equality on the golden corpus, including partial captures; format spec drafted and versioned.
+**Exit criteria:** capture → pack → unpack → equality on the golden corpus, including partial captures ✅; format spec drafted and versioned ✅. *(Remaining Phase-0 item: the `capture` MVP that produces the in-memory model.)*
 
 ## Phase 1 — Local loop (v0)
 
 **Goal:** the server-less product loop.
 
-- `extension`: act as a harness: inject the capture library and the Document Policy needed for JS self-profiling into live pages; collect the page-produced capture on lifecycle; save `.rumcap` files. Set the `Document-Policy: js-profiling` response header the API requires, and confirm current (Chromium-only) browser support before relying on it. Do not use extension-only APIs such as `webRequest` as measurement sources. Surface a default capture-config.
+- `extension`: act as a harness: inject the capture library and the Document Policy needed for JS self-profiling into live pages; collect the page-produced capture on lifecycle; save `.rcap` files. Set the `Document-Policy: js-profiling` response header the API requires, and confirm current (Chromium-only) browser support before relying on it. Do not use extension-only APIs such as `webRequest` as measurement sources. Surface a default capture-config.
 - `capture`: add the expensive/conditional streams — JS self-profiling — under the overhead budget and config gating.
-- `transcode`: `.rumcap` → Perfetto protobuf. Start with slices/tracks (timeline), then add **sampled callstacks** (flamegraph) and **counter tracks**. This is the main net-new engineering — includes a varint encoder + TracePacket builder, validated by loading/parsing generated protobuf traces with Perfetto tooling.
-- `viewer`: embed `ui.perfetto.dev`; load a `.rumcap`, transcode in-browser, hand the buffer to Perfetto. Local-only.
+- `transcode`: `.rcap` → Perfetto protobuf. Start with slices/tracks (timeline), then add **sampled callstacks** (flamegraph) and **counter tracks**. This is the main net-new engineering — includes a varint encoder + TracePacket builder, validated by loading/parsing generated protobuf traces with Perfetto tooling.
+- `viewer`: embed `ui.perfetto.dev`; load a `.rcap`, transcode in-browser, hand the buffer to Perfetto. Local-only.
 - `analysis`: derive CWV + attribution + emergent metrics (idle/schedulable windows) from the timeline; expose as queries.
 - `symbolication`: resolve profiler frames through source maps; prettify minified code.
 
@@ -74,7 +74,9 @@ The **Phase 1 milestone is the first shippable product**: a Chrome extension tha
 - **Language:** ✅ Resolved — **TypeScript** (strict, NodeNext, `verbatimModuleSyntax`) across the shared schema.
 - **Layout:** ✅ Resolved — `components/<name>/` grouping (current).
 - **Test runner:** ✅ Resolved — **vitest** (matches the sibling project).
-- **Canonical file extension / magic bytes** for the packed format.
+- **Canonical file extension / magic bytes:** ✅ Resolved — extension **`.rcap`**, magic **`F5 52 55 4D`** (`\xF5RUM`; `0xF5` is an always-invalid UTF-8 lead byte → unmistakably binary). Wire encoding carries its own **`CODEC_VERSION`**, separate from the schema **`FORMAT_VERSION`**.
+- **Codec substrate / compression:** ✅ Resolved — hand-rolled varint writer (zero runtime deps); **gzip** outer pass applied after string interning.
+- **Timestamp precision:** ✅ Resolved — timeline values stored as **fixed-point 1µs** (zigzag varint), lossless vs. the browser's ≤5µs real `DOMHighResTimeStamp` resolution; the profiler sample stream additionally uses columnar µs-delta encoding. `EpochMs` and true floats stay f64.
 - **License nuance:** ✅ Resolved — policy is **product vs. tooling** (see [AGENTS.md](../AGENTS.md)): product code is permissive-only (allowed as a category, not a fixed list); non-shipping dev/build tooling may use weak/file-level copyleft that can't leak (e.g. MPL-2.0 `lightningcss` via Vite/Vitest). Strong copyleft (GPL/AGPL/LGPL) remains a human call.
 - **Soft navigations:** how aggressively to support the (still-experimental) SPA boundary signal in v0.
 - **JS self-profiling overhead tuning:** the enabling header is fixed (`Document-Policy: js-profiling`); the open question is the overhead budget — `sampleInterval` / `maxBufferSize` and when to enable profiling (always-sampled vs. triggered) — tuned against measured cost and current (Chromium-only) support.

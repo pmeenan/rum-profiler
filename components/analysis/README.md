@@ -12,7 +12,7 @@ Derives metrics and attribution from a packed capture's correlated timeline. Thi
 
 ## Notes
 
-- Operates **offline** on a `.rumcap` (after [`capture`](../capture) recorded the live attribution that can't be derived later).
+- Operates **offline** on a `.rcap` (after [`capture`](../capture) recorded the live attribution that can't be derived later).
 - Perfetto's SQL `trace_processor` is a complementary query surface on the transcoded trace; decide which derivations live here vs. as Perfetto SQL.
 
 Detailed design deferred to its phase — see [docs/Architecture.md](docs/Architecture.md).

@@ -9,7 +9,7 @@ A Chrome extension that lets you capture deep performance data on **any** produc
 - Inject the [`capture`](../capture) library into the target page.
 - Add the Document Policy response header that permits JS self-profiling (the reason `capture` can't enable it alone).
 - Apply a default **capture-config** (and let the user tweak what to capture).
-- On page lifecycle / navigation, receive the page-produced capture, pack it via [`format`](../format), and **save the `.rumcap` file** to disk.
+- On page lifecycle / navigation, receive the page-produced capture, pack it via [`format`](../format), and **save the `.rcap` file** to disk.
 - Optionally hand a capture straight to the [`viewer`](../viewer) ("capture and view").
 
 ## Why an extension
@@ -27,7 +27,7 @@ The extension is not a measurement component. It must not use extension-only API
 ## Inputs / outputs
 
 - **In:** a live page; a capture-config.
-- **Out:** saved `.rumcap` files; optionally an in-memory capture passed to the viewer.
+- **Out:** saved `.rcap` files; optionally an in-memory capture passed to the viewer.
 
 ## Key open questions
 

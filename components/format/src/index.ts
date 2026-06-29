@@ -4,6 +4,12 @@ export { FORMAT_VERSION, STREAM_SCHEMA_VERSIONS } from './version.js';
 export { STREAM_IDS, STREAM_STATUSES, ENTRY_TYPE_TO_STREAM } from './registry.js';
 export { asRelMs, asDurationMs, asEpochMs } from './time.js';
 
+// Binary codec: pack/unpack the in-memory model (lossless to 1µs on timeline values, exact otherwise),
+// plus the file's identifying constants.
+export { pack, unpack, MAGIC, CODEC_VERSION, FILE_EXTENSION } from './codec/pack.js';
+// Manifest-vs-payload consistency check for tests/tooling (not the hot pack path).
+export { checkConsistency } from './codec/validate.js';
+
 export type { StreamId, StreamStatus } from './registry.js';
 export type { RelMs, DurationMs, EpochMs } from './time.js';
 export type {

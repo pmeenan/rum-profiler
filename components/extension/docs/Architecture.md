@@ -7,7 +7,7 @@
 - **Header injection** — a `declarativeNetRequest` rule adds the `Document-Policy: js-profiling` response header to top-level (and relevant sub-frame) responses for pages where capture is active. Self-profiling is Chromium-only today; confirm current support before relying on it.
 - **Script injection** — inject [`capture`](../../capture) into the page's **main world** (so it sees the real performance entries and can run the profiler), parameterized by a capture-config. Prefer `document_start` registration for active captures; late `executeScript`-style injection can miss early navigation, paint, and resource signals.
 - **Lifecycle coordination** — inject or trigger the page-side capture flush on `visibilitychange` → hidden, `pagehide`, and bfcache transitions, so captures aren't lost on navigation away.
-- **Saver** — pack via [`format`](../../format) and download the `.rumcap`; or post the in-memory capture to the [`viewer`](../../viewer).
+- **Saver** — pack via [`format`](../../format) and download the `.rcap`; or post the in-memory capture to the [`viewer`](../../viewer).
 - **Popup/options UI** — toggle capture on/off, pick a capture-config preset, open the viewer.
 
 Extension APIs are harness-only. They may inject scripts, set the profiling Document Policy, expose UI, save files, and launch the viewer, but they must not produce performance measurements. No resource timing, navigation timing, profiling, lifecycle, or attribution data should come from `webRequest`, DevTools Protocol, extension network interception, or any other extension-only surface.
@@ -27,7 +27,7 @@ capture lib injected (main world) with config
 page runs; lifecycle hook fires
         │
         ▼
-page-produced capture ──► format.pack() ──► save .rumcap   (or hand buffer to viewer)
+page-produced capture ──► format.pack() ──► save .rcap   (or hand buffer to viewer)
 ```
 
 ## Privacy

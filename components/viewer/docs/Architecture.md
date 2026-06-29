@@ -5,7 +5,7 @@
 ## Flow
 
 ```
-.rumcap (file or from extension)
+.rcap (file or from extension)
         │
         ▼
 transcode → Perfetto protobuf (ArrayBuffer)   [run in a worker for large captures]

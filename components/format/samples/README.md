@@ -2,7 +2,7 @@
 
 Real `Performance` API captures from production web pages, used to **ground the `format` schema in actual browser output** instead of memory (project guardrail: *"verify the platform; don't trust memory; ground in real captures"*). These are the seed of the golden corpus.
 
-> ⚠️ These are **raw browser shapes** — each entry's `toJSON()` plus the live-DOM attribution `toJSON()` drops — **not** the canonical, packed/redacted golden corpus. The golden corpus (packed `.rumcap` + expected unpacked model) is defined once the codec exists; these samples drive its design.
+> ⚠️ These are **raw browser shapes** — each entry's `toJSON()` plus the live-DOM attribution `toJSON()` drops — **not** the canonical golden corpus. The golden corpus (Capture-shaped fixtures the codec round-trips, incl. degraded variants) now lives in [`../test/fixtures.ts`](../test/fixtures.ts), grounded in these samples; the round-trip test is [`../test/codec.test.ts`](../test/codec.test.ts).
 
 ## Layout
 

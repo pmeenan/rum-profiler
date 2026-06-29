@@ -13,10 +13,11 @@ export interface OverheadReport {
 }
 
 /**
- * The in-memory capture model — what `capture` produces and `format` packs/unpacks losslessly.
+ * The in-memory capture model — what `capture` produces and `format` packs/unpacks.
  * `manifest` describes presence/clock/config; `streams` holds whatever was actually collected;
  * `overhead` is capture's self-measurement. This interface is the contract every other component
- * reads or writes; the binary codec (next) round-trips exactly this shape.
+ * reads or writes; the binary codec round-trips this model exactly in shape — every field preserved,
+ * lossless to 1µs on timeline values (`RelMs`/`DurationMs`) and exact on everything else.
  */
 export interface Capture {
   formatVersion: number;

@@ -5,7 +5,7 @@
 ## Pipeline
 
 ```
-.rumcap → unpack (format) → map streams → build TracePackets → varint-encode → Perfetto protobuf
+.rcap → unpack (format) → map streams → build TracePackets → varint-encode → Perfetto protobuf
 ```
 
 ## Mapping (draft)
